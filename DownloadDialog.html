@@ -1,0 +1,72 @@
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; padding: 4px 10px; }
+  label { display: block; margin-top: 10px; font-weight: bold; }
+  .bands label { display: inline-block; font-weight: normal; margin-right: 12px; }
+  input[type=date] { width: 140px; }
+  button { margin-top: 16px; margin-right: 8px; padding: 6px 14px; }
+  #result { margin-top: 14px; }
+  #result a { display: inline-block; margin-top: 6px; }
+</style>
+
+<label>From date (optional)</label>
+<input type="date" id="dateFrom">
+
+<label>To date (optional)</label>
+<input type="date" id="dateTo">
+
+<label>Bands</label>
+<div class="bands">
+  <label><input type="checkbox" value="A" checked> A</label>
+  <label><input type="checkbox" value="B" checked> B</label>
+  <label><input type="checkbox" value="C" checked> C</label>
+  <label><input type="checkbox" value="D" checked> D</label>
+</div>
+
+<button id="previewBtn" onclick="doPreview()">Preview</button>
+<button id="confirmBtn" onclick="doExport()" disabled>Confirm &amp; Download</button>
+
+<div id="result"></div>
+
+<script>
+  function getFilters() {
+    var bands = Array.prototype.slice.call(document.querySelectorAll('.bands input:checked'))
+      .map(function (cb) { return cb.value; });
+    return {
+      dateFrom: document.getElementById('dateFrom').value,
+      dateTo: document.getElementById('dateTo').value,
+      bands: bands,
+    };
+  }
+
+  function doPreview() {
+    document.getElementById('confirmBtn').disabled = true;
+    document.getElementById('result').innerHTML = 'Checking...';
+    google.script.run.withSuccessHandler(function (res) {
+      document.getElementById('result').innerHTML =
+        res.count + ' contact(s) across ' + res.companyCount +
+        ' compan' + (res.companyCount === 1 ? 'y' : 'ies') + ' match this filter.';
+      document.getElementById('confirmBtn').disabled = (res.count === 0);
+    }).withFailureHandler(showError).previewMatches(getFilters());
+  }
+
+  function doExport() {
+    document.getElementById('previewBtn').disabled = true;
+    document.getElementById('confirmBtn').disabled = true;
+    document.getElementById('result').innerHTML = 'Building CSV...';
+    google.script.run.withSuccessHandler(function (res) {
+      document.getElementById('previewBtn').disabled = false;
+      if (!res.count) {
+        document.getElementById('result').innerHTML = 'Nothing matched — nothing was exported.';
+        return;
+      }
+      document.getElementById('result').innerHTML =
+        res.count + ' contact(s) exported as batch ' + res.batchId + '.<br>' +
+        '<a href="' + res.fileUrl + '" target="_blank">Open ' + res.fileName + '</a>';
+    }).withFailureHandler(showError).exportBatch(getFilters());
+  }
+
+  function showError(err) {
+    document.getElementById('previewBtn').disabled = false;
+    document.getElementById('result').innerHTML = 'Error: ' + err.message;
+  }
+</script>

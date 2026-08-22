@@ -1,0 +1,59 @@
+<style>
+  body { font-family: Arial, sans-serif; font-size: 13px; padding: 4px 10px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+  th { text-align: left; border-bottom: 1px solid #999; padding: 4px; }
+  td { border-bottom: 1px solid #eee; padding: 4px; }
+</style>
+
+<div id="list">Loading...</div>
+
+<script>
+  function render(batches) {
+    var listEl = document.getElementById('list');
+    if (!batches.length) {
+      listEl.innerHTML = 'No batches have been downloaded yet.';
+      return;
+    }
+    var html = '<table><tr><th>Batch</th><th>Date</th><th>Bands</th><th>Count</th><th></th><th></th></tr>';
+    batches.forEach(function (b) {
+      html += '<tr data-batch="' + b.batchId + '">' +
+        '<td>' + b.batchId + '</td>' +
+        '<td>' + b.dateExported + '</td>' +
+        '<td>' + b.bands + '</td>' +
+        '<td>' + b.count + '</td>' +
+        '<td class="open-cell"><a href="' + b.fileUrl + '" target="_blank">Open</a></td>' +
+        '<td><button onclick="regenerate(\'' + b.batchId + '\', this)">Regenerate</button></td>' +
+        '</tr>';
+    });
+    html += '</table>';
+    listEl.innerHTML = html;
+  }
+
+  // Use this if a batch's "Open" link is dead (the Drive file was
+  // deleted) — rebuilds the CSV from Ledger and creates a fresh file.
+  function regenerate(batchId, btn) {
+    btn.disabled = true;
+    btn.textContent = 'Working...';
+    google.script.run.withSuccessHandler(function (res) {
+      if (!res.count) {
+        btn.textContent = 'No rows found';
+        return;
+      }
+      var row = btn.closest('tr');
+      var openLink = row.querySelector('.open-cell a');
+      openLink.href = res.fileUrl;
+      btn.textContent = 'Regenerated';
+    }).withFailureHandler(function (err) {
+      btn.disabled = false;
+      btn.textContent = 'Regenerate';
+      alert('Error: ' + err.message);
+    }).regenerateBatchCsv(batchId);
+  }
+
+  google.script.run
+    .withSuccessHandler(render)
+    .withFailureHandler(function (err) {
+      document.getElementById('list').innerHTML = 'Error: ' + err.message;
+    })
+    .listBatches();
+</script>
